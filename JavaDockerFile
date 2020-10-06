@@ -1,0 +1,22 @@
+FROM us.gcr.io/project1/personalcicd/devops-docker-centos7-base:stable
+
+USER root
+LABEL MAINTAINER=personalcicd
+
+ARG env
+ENV env=$env
+RUN echo "This is $env"
+
+RUN yum update -y && \
+yum install java-1.8.0-openjdk-headless -y && \
+yum install -y tzdata && \
+yum clean all
+COPY target/*.jar app.jar
+RUN mkdir -p /cert
+COPY src/main/resources/jwt_private.der src/main/resources/dw-bq-data-d00-dev-spring-boot-batch.json /cert/
+COPY src/main/resources/ICA.cer ICA.cer
+COPY src/main/resources/RCA.cer RCA.cer
+RUN keytool -import -alias intercert -keystore $JAVA_HOME/jre/lib/security/cacerts -file ICA.cer -storepass changeit -noprompt
+RUN keytool -import -alias rootcert -keystore $JAVA_HOME/jre/lib/security/cacerts -file RCA.cer -storepass changeit -noprompt
+COPY src/main/resources/* /config/
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar /app.jar --spring.config.location=/config/application.properties"]
